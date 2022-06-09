@@ -1,0 +1,17 @@
+
+<div mat-dialog-title>
+  <h1>Update value in table</h1>
+</div>
+<div mat-dialog-content>
+  <h3>Value</h3>
+  <div class="row">
+    <div class="form-group">
+      <input type="text" class="form-control" placeholder="Value" [(ngModel)]="data">
+    </div>
+  </div>
+</div>
+<div mat-dialog-actions>
+  <button class="btn btn-secondary" mat-button (click)="onNoClick()">Close</button>
+  <button class="btn btn-primary" mat-button [mat-dialog-close]="data">Update</button>
+</div>
+
