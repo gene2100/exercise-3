@@ -14,6 +14,15 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
 
   public diagram: go.Diagram;
 
+  makeButton(text, action) {
+    return $("ContextMenuButton",
+      $(go.TextBlock, text),
+      { click: action },
+      // // don't bother with binding GraphObject.visible if there's no predicate
+      // visiblePredicate ? new go.Binding("visible", "", (o, e) => o.diagram ? visiblePredicate(o, e) : false).ofObject() : {}
+      );
+  }
+
   constructor(public dialog: MatDialog) { }
 
   ngOnInit(): void {
@@ -25,6 +34,53 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
       {"undoManager.isEnabled": true}
     )
 
+    const contextButtonRow =
+    $("ContextMenu",
+      this.makeButton("AddrowAbove",
+        (e, obj) => {
+          let contextMenu = obj.part
+          let part = contextMenu.adornedObject
+          this.addRow(part.panel.itemIndex)
+      }),
+      this.makeButton("AddrowBelow",
+        (e, obj) => {
+          let contextMenu = obj.part
+          let part = contextMenu.adornedObject
+          this.addRow(part.panel.itemIndex + 1)
+      }),
+      this.makeButton("RemoveRow",
+        (e, obj) => {
+          let contextMenu = obj.part
+          let part = contextMenu.adornedObject
+          this.removeRow(part.panel.itemIndex)
+      }),
+      )
+
+    const contextButtonColumn =
+      $("ContextMenu",
+      this.makeButton("AddColumnBefore",
+        (e, obj) => {
+          let contextMenu = obj.part
+          let part = contextMenu.adornedObject
+          this.InsertColumn(part.itemIndex)
+        }
+      ),
+      this.makeButton("AddColumnAfter",
+        (e, obj) => {
+          let contextMenu = obj.part
+          let part = contextMenu.adornedObject
+          this.InsertColumn(part.itemIndex + 1)
+        }
+      ),
+      this.makeButton("RemoveColumn",
+        (e, obj) => {
+          let contextMenu = obj.part
+          let part = contextMenu.adornedObject
+          this.DeleteSelectColumn(part.itemIndex)
+        }
+      )
+      )
+
     this.diagram.nodeTemplate =
       $(go.Node, "Auto",
         $(go.Shape, { fill: "white"}),
@@ -33,13 +89,13 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
         defaultColumnSeparatorStroke: "black" },
         $(go.Panel,"TableRow", new go.Binding("itemArray", "columnDefinitions"), { isPanelMain: true },
           {itemTemplate:
-            $(go.Panel, {stretch: go.GraphObject.Fill, background: "transparent"},
+            $(go.Panel, {stretch: go.GraphObject.Fill, background: "lightgray"},
               new go.Binding("column"),
               {
                 doubleClick: (e, item) => {
-                  console.log(item.findBindingPanel().toString())
                   this.openDialog(item.findBindingPanel())
-                }
+                },
+                contextMenu: contextButtonColumn
               },
               $(go.TextBlock, "Auto",
                 { margin: new go.Margin(15, 15, 15, 15), font: "bold 10pt sans-serif" },
@@ -58,9 +114,9 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
                     new go.Binding("column"),
                     {
                       doubleClick: (e, item) => {
-                        console.log(item.findBindingPanel().toString())
                         this.openDialog(item.findBindingPanel())
-                      }
+                      },
+                      contextMenu: contextButtonRow
                     },
                   $(go.TextBlock, {margin: new go.Margin(15, 15, 15, 15)},
                     new go.Binding("text").makeTwoWay())
@@ -106,7 +162,7 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
   this.diagram.commitTransaction("addTable")
   }
 
-  addRow(){
+  addRow(rowIndex : number){
     let selectedTable = this.diagram.selection.first()
     if (selectedTable === null) return;
     let data = selectedTable.data;
@@ -115,7 +171,7 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
       newRow.columns.push({column: i, text: ""})
     }
     this.diagram.startTransaction("addRow")
-    this.diagram.model.insertArrayItem(data.people, -1, newRow)
+    this.diagram.model.insertArrayItem(data.people, rowIndex, newRow)
     this.diagram.commitTransaction("addRow")
   }
 
@@ -139,12 +195,12 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
     this.diagram.commitTransaction("removeTable")
   }
 
-  removeRow(){
+  removeRow(rowIndex : number){
     let selectedTable = this.diagram.selection.first()
     if (selectedTable === null) return;
     let data = selectedTable.data;
     this.diagram.startTransaction("removeRow")
-    this.diagram.model.removeArrayItem(data.people, -1)
+    this.diagram.model.removeArrayItem(data.people, rowIndex)
     this.diagram.commitTransaction("removeRow")
   }
 
@@ -161,6 +217,46 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
     this.diagram.commitTransaction("removeColumn")
   }
 
+  InsertColumn(colIndex : number){
+    let selectedTable = this.diagram.selection.first()
+    if (selectedTable === null) return;
+    let data = selectedTable.data;
+    this.diagram.startTransaction("insertColumn")
+    this.diagram.model.insertArrayItem(data.columnDefinitions, colIndex, {text: "Default", column: colIndex})
+    for(let i = colIndex + 1; i < data.columnDefinitions.length; i++){
+      this.diagram.model.setDataProperty(data.columnDefinitions[i], "column", i)
+    }
+    for(let row = 0 ; row < data.people.length; row++){
+      this.diagram.model.insertArrayItem(data.people[row].columns, colIndex, {column: colIndex, text: ""})
+      for(let col = colIndex + 1; col < data.people[row].columns.length; col ++ ){
+        this.diagram.model.setDataProperty(data.people[row].columns[col], "column", col)
+      }
+    }
+    this.diagram.model.commitTransaction("insertColumn")
+  }
+
+  DeleteSelectColumn(colIndex : number){
+    let selectedTable = this.diagram.selection.first()
+    if (selectedTable === null) return;
+    let data = selectedTable.data;
+    if (data.columnDefinitions.length === 1){
+      alert("Cannot delete last column in the table")
+      return;
+    }
+    this.diagram.startTransaction("deleteSelectColumn")
+    this.diagram.model.removeArrayItem(data.columnDefinitions, colIndex)
+    for(let i = colIndex; i < data.columnDefinitions.length; i++){
+      this.diagram.model.setDataProperty(data.columnDefinitions[i], "column", i)
+    }
+    for(let row = 0 ; row < data.people.length; row++){
+      this.diagram.model.removeArrayItem(data.people[row].columns, colIndex)
+      for(let col = colIndex; col < data.people[row].columns.length; col ++ ){
+        this.diagram.model.setDataProperty(data.people[row].columns[col], "column", col)
+      }
+    }
+    this.diagram.commitTransaction("deleteSelectColumn")
+  }
+
   openDialog(tablePanel: go.Panel): void{
     const dialogRef = this.dialog.open(EditDialogComponent, {
       width: '500px',
@@ -168,9 +264,9 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
     });
 
     dialogRef.afterClosed().subscribe(result => {
-      tablePanel.data.text = result
-      tablePanel.updateTargetBindings();
-      console.log(this.diagram.model.nodeDataArray)
+      this.diagram.startTransaction("editValue")
+      this.diagram.model.setDataProperty(tablePanel.data, "text", result)
+      this.diagram.commitTransaction("editValue")
     })
   }
 }
