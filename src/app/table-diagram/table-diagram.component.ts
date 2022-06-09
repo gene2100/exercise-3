@@ -21,7 +21,9 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit(){
 
-    this.diagram = $(go.Diagram, 'myDiagramDiv')
+    this.diagram = $(go.Diagram, 'myDiagramDiv',
+      {"undoManager.isEnabled": true}
+    )
 
     this.diagram.nodeTemplate =
       $(go.Node, "Auto",
