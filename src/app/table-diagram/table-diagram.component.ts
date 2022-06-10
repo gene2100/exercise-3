@@ -14,6 +14,8 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
 
   public diagram: go.Diagram;
 
+  public tableCount: number = 2;
+
   makeButton(text, action) {
     return $("ContextMenuButton",
       $(go.TextBlock, text),
@@ -81,9 +83,34 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
       )
       )
 
+      const contextButtonLink =
+        $("ContextMenu",
+        this.makeButton("One to One",
+          (e, obj) => {
+            this.setLinkRel("One to One")
+          }
+          ),this.makeButton("One to Many",
+          (e, obj) => {
+            this.setLinkRel("One to Many")
+          }
+          ),this.makeButton("Many to One",
+          (e, obj) => {
+            this.setLinkRel("Many to One")
+          }
+          ),this.makeButton("Many to Many",
+          (e, obj) => {
+            this.setLinkRel("Many to Many")
+          }
+          ),this.makeButton("Delete",
+          (e, obj) => {
+            this.DeleteLink()
+          }
+          )
+        )
+
     this.diagram.nodeTemplate =
       $(go.Node, "Auto",
-        $(go.Shape, { fill: "white"}),
+        $(go.Shape, { fill: "white" }),
         $(go.Panel, "Table", new go.Binding("itemArray", "people"),
         { defaultRowSeparatorStroke: "black",
         defaultColumnSeparatorStroke: "black" },
@@ -122,16 +149,24 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
                     new go.Binding("text").makeTwoWay())
                   )
               }
-            )
+            ),
         }
+      ),
+      $(go.Shape,"Rectangle", {height: 8, width: 8, angle: 180, portId: "Link", alignment: new go.Spot(1,0,-2,2), fill:"#0d6efd", stroke:"lightgray",fromLinkable: true, toLinkable: true}),
       )
-      )
+
+    this.diagram.linkTemplate = $(go.Link, {contextMenu: contextButtonLink},
+      $(go.Shape),
+      $(go.Shape, { toArrow: "Standard" }),
+      $(go.TextBlock, new go.Binding("text", "rel"), {segmentOffset: new go.Point(0,-12), segmentOrientation: go.Link.OrientAlong})
+    );
 
     this.diagram.model = new go.GraphLinksModel({
       copiesArrays: true,
       copiesArrayObjects: true,
       nodeDataArray: [
         {
+          key : 1,
           columnDefinitions: [
             { text: "Name", column: 0 },
             { text: "Phone #", column: 1 },
@@ -144,14 +179,31 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
             { columns: [{ column: 0, text: "Ted" }, { column: 1, text: "2222" }, { column: 2, text: "C4-E197" }] }
           ]
         },
+        { // second node
+          key: 2,
+          columnDefinitions: [
+            {text: "Name", column: 0 },
+            {text: "Phone #", column: 1 },
+            {text: "Office", column: 2 }
+          ],
+          people: [
+            { columns: [{column: 0, text: "Robert" }, { column: 1, text: "5656" }, { column: 2, text: "B1-A27" }] },
+            { columns: [{column: 0, text: "Natalie" }, { column: 1, text: "5698" }, { column: 2, text: "B1-B6" }] }
+          ]
+        }
+      ],
+      linkDataArray: [
+        { from: 1, to: 2, rel: "One to Many" }
       ]
     }
     )
   }
 
   addTable(){
+    this.tableCount++;
     this.diagram.startTransaction("addTable")
     this.diagram.model.addNodeData({
+      key : this.tableCount,
       columnDefinitions: [
       { text: "Doubleclick to Edit", column: 0 },
     ],
@@ -268,6 +320,23 @@ export class TableDiagramComponent implements OnInit, AfterViewInit {
       this.diagram.model.setDataProperty(tablePanel.data, "text", result)
       this.diagram.commitTransaction("editValue")
     })
+  }
+
+  setLinkRel(rel: string){
+    let selectedLink = this.diagram.selection.first()
+    if (selectedLink === null) return;
+    let data = selectedLink.data;
+    this.diagram.startTransaction('setRel')
+    this.diagram.model.setDataProperty(data, "rel", rel)
+    this.diagram.commitTransaction('setRel')
+  }
+
+  DeleteLink(){
+    let selectedLink = this.diagram.selection.first()
+    if (selectedLink === null) return;
+    this.diagram.startTransaction('DeleteLink')
+    this.diagram.remove(selectedLink)
+    this.diagram.commitTransaction('DeleteLink')
   }
 }
 
